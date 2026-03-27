@@ -1,467 +1,633 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { motion, useScroll, useTransform, AnimatePresence, useSpring } from 'motion/react';
-import { StarNode } from '../types';
-import { GENERATED_IMAGES } from '../assets/generated_images';
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>探弥宇宙 | Tanmi Universe - 数字文明重构者</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Noto+Serif+SC:wght@400;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        tanmi: {
+                            black: '#050505',
+                            white: '#F5F5F5',
+                            accent: '#56402D',
+                            gray: '#8E8E8E',
+                            bg: '#0A0A0A'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Noto Serif SC', 'serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #050505;
+            color: #F5F5F5;
+            overflow-x: hidden;
+            scroll-behavior: smooth;
+        }
+        .page-section {
+            display: none;
+        }
+        .page-section.active {
+            display: block;
+        }
+        .nav-link.active {
+            color: #56402D;
+        }
+        .nav-link.active::after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background-color: #56402D;
+        }
+        /* Custom Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 1s ease forwards;
+        }
+        .grayscale-hover {
+            filter: grayscale(100%);
+            transition: all 0.7s ease;
+        }
+        .grayscale-hover:hover {
+            filter: grayscale(0%);
+            transform: scale(1.05);
+        }
+        /* Hide scrollbar */
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #050505;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #56402D;
+        }
+    </style>
+</head>
+<body class="font-sans">
 
-const PLANETS: StarNode[] = [
-  { 
-    id: '1', x: 0, y: 0, size: 280, texture: 'jade', 
-    label: '云冈', subtitle: '千年回响', year: '460 AD',
-    description: '石窟里的色彩叙事，在数字宇宙中重新点燃。',
-    floatSpeed: 6, floatRange: 15, graphicType: 'grid'
-  },
-  { 
-    id: '2', x: 0, y: 0, size: 220, texture: 'bronze', 
-    label: '丝路', subtitle: '驼铃古道', year: '138 BC',
-    description: '大漠孤烟直，长河落日圆。数字丝路重现贸易盛景。',
-    floatSpeed: 8, floatRange: 10, graphicType: 'crosshair'
-  },
-  { 
-    id: '3', x: 0, y: 0, size: 320, texture: 'stone', 
-    label: '文豪', subtitle: '笔墨春秋', year: '712 AD',
-    description: '杜甫、苏轼... 历代文豪的笔墨风骨，在星图里寻找新的注脚。',
-    floatSpeed: 7, floatRange: 20, graphicType: 'rings'
-  },
-  { 
-    id: '4', x: 0, y: 0, size: 180, texture: 'jade', 
-    label: '诸子', subtitle: '百家争鸣', year: '770 BC',
-    description: '孔孟老庄，先秦诸子的智慧火花，在数字维度中缓缓揭开。',
-    floatSpeed: 5, floatRange: 8, graphicType: 'dots'
-  },
-  { 
-    id: '5', x: 0, y: 0, size: 240, texture: 'bronze', 
-    label: '三星堆', subtitle: '青铜神树', year: '1200 BC',
-    description: '古蜀文明的神秘面纱，在数字维度中缓缓揭开。',
-    floatSpeed: 9, floatRange: 12, graphicType: 'crosshair'
-  },
-];
-
-interface Props {
-  onNodeClick: (node: StarNode) => void;
-  onExploreClick?: () => void;
-  title1?: string[];
-  title2?: string[];
-}
-
-export const PlanetHero: React.FC<Props> = ({ 
-  onNodeClick, 
-  onExploreClick,
-  title1 = ["探", "文", "明", "深", "邃"],
-  title2 = ["弥", "古", "今", "边", "界"]
-}) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [mouse, setMouse] = useState({ x: 0, y: 0 });
-  
-  const { scrollYProgress } = useScroll({
-    target: containerRef,
-    offset: ["start start", "end end"]
-  });
-
-  const smoothProgress = useSpring(scrollYProgress, {
-    stiffness: 100,
-    damping: 30,
-    restDelta: 0.001
-  });
-
-  // Map scroll progress to horizontal movement
-  // 0.0 - 0.2: Scroll unrolls (Artifact Scroll)
-  // 0.2 - 0.3: Title and Scroll fade out
-  // 0.3 - 0.9: Planets scroll horizontally
-  const xTranslate = useTransform(smoothProgress, [0.3, 0.9], ["0%", "-80%"]);
-  const scrollUnroll = useTransform(smoothProgress, [0, 0.2], ["0%", "100%"]);
-  const titleOpacity = useTransform(smoothProgress, [0, 0.2, 0.3], [1, 1, 0]);
-  const titleScale = useTransform(smoothProgress, [0, 0.3], [1, 0.9]);
-  const artifactOpacity = useTransform(smoothProgress, [0.2, 0.3], [1, 0]);
-
-  return (
-    <div ref={containerRef} className="relative h-[600vh] bg-tanmi-bg">
-      <div className="sticky top-0 h-screen w-full overflow-hidden">
-        {/* Background Elements */}
-        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_center,transparent_0%,rgba(10,10,10,0.6)_100%)] z-20" />
-        
-        {/* Atmospheric Background Glow */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div 
-            className="absolute w-[150%] h-[150%] -top-[25%] -left-[25%] opacity-20 blur-[120px]"
-            style={{
-              background: `radial-gradient(circle at 50% 50%, #56402D 0%, transparent 70%)`,
-              transform: `translate(${(mouse.x - window.innerWidth/2) * 0.02}px, ${(mouse.y - window.innerHeight/2) * 0.02}px)`,
-            }}
-          />
+    <!-- Navigation Bar -->
+    <nav class="fixed top-0 left-0 w-full z-50 px-16 py-8 flex items-center justify-between bg-gradient-to-b from-black/80 to-transparent backdrop-blur-sm">
+        <div class="flex items-center gap-4 cursor-pointer" onclick="switchPage('home')">
+            <div class="w-10 h-10 border border-tanmi-accent flex items-center justify-center">
+                <span class="text-tanmi-accent font-serif text-xl">TM</span>
+            </div>
+            <div class="flex flex-col">
+                <span class="text-lg font-serif tracking-[0.3em]">探弥宇宙</span>
+                <span class="text-[8px] font-mono text-tanmi-accent tracking-[0.5em] uppercase">Tanmi_Universe</span>
+            </div>
         </div>
 
-        {/* Oriental Artifact Scroll (东方文物画卷) */}
-        <motion.div 
-          style={{ 
-            scaleX: scrollUnroll,
-            opacity: artifactOpacity,
-            perspective: 1000
-          }}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[85vw] h-[55vh] origin-center z-10 pointer-events-none overflow-hidden rounded-none shadow-[0_0_80px_rgba(86,64,45,0.4)]"
-        >
-          {/* Scroll Content (Simulated Artifact Painting) */}
-          <div className="absolute inset-0 bg-[#f4ecd8] opacity-95" />
-          <motion.img 
-            src={GENERATED_IMAGES.hero_planet || "https://picsum.photos/seed/ancient-art/1600/800?grayscale&blur=1"} 
-            alt="Artifact Scroll"
-            style={{
-              x: useTransform(smoothProgress, [0, 0.2], ["-5%", "0%"]),
-              scale: useTransform(smoothProgress, [0, 0.2], [1.1, 1])
-            }}
-            className="absolute inset-0 w-full h-full object-cover mix-blend-multiply opacity-70"
-            referrerPolicy="no-referrer"
-          />
-          
-          {/* Ink Wash Texture & Paper Grain */}
-          <div className="absolute inset-0 opacity-30 mix-blend-overlay bg-[url('https://www.transparenttextures.com/patterns/natural-paper.png')]" />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/20 via-transparent to-black/20 pointer-events-none" />
-          
-          {/* Subtle Shimmer Overlay */}
-          <motion.div 
-            animate={{ 
-              backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
-            }}
-            transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-            className="absolute inset-0 opacity-10 mix-blend-overlay pointer-events-none"
-            style={{
-              background: 'linear-gradient(90deg, transparent, #56402D, transparent)',
-              backgroundSize: '200% 100%'
-            }}
-          />
+        <div class="flex items-center gap-12">
+            <a href="javascript:void(0)" onclick="switchPage('home')" class="nav-link relative text-[11px] tracking-[0.4em] uppercase hover:text-tanmi-accent transition-colors active" id="nav-home">首页</a>
+            <a href="javascript:void(0)" onclick="switchPage('philosophy')" class="nav-link relative text-[11px] tracking-[0.4em] uppercase hover:text-tanmi-accent transition-colors" id="nav-philosophy">理念</a>
+            <a href="javascript:void(0)" onclick="switchPage('constellations')" class="nav-link relative text-[11px] tracking-[0.4em] uppercase hover:text-tanmi-accent transition-colors" id="nav-constellations">星群</a>
+            <a href="javascript:void(0)" onclick="switchPage('vault')" class="nav-link relative text-[11px] tracking-[0.4em] uppercase hover:text-tanmi-accent transition-colors" id="nav-vault">藏馆</a>
+            <a href="javascript:void(0)" onclick="switchPage('interaction')" class="nav-link relative text-[11px] tracking-[0.4em] uppercase hover:text-tanmi-accent transition-colors" id="nav-interaction">互动</a>
+            <a href="javascript:void(0)" onclick="switchPage('news')" class="nav-link relative text-[11px] tracking-[0.4em] uppercase hover:text-tanmi-accent transition-colors" id="nav-news">资讯</a>
+        </div>
 
-          {/* Concave Scroll Edges (The rollers - Reverted to Brown) */}
-          <div className="absolute left-0 top-0 bottom-0 w-8 flex flex-col items-center justify-between py-2 z-20">
-            <div className="w-full h-full bg-gradient-to-r from-[#2a1a0d] via-[#56402d] to-[#2a1a0d] shadow-2xl rounded-none relative overflow-hidden border-r border-white/5">
-              <div className="absolute inset-y-0 right-0 w-2 bg-black/30 blur-[2px]" />
+        <button class="px-8 py-2 border border-tanmi-accent/30 text-[10px] tracking-[0.4em] uppercase hover:bg-tanmi-accent hover:text-white transition-all">
+            进入宇宙 / ENTER
+        </button>
+    </nav>
+
+    <!-- --- PAGE: HOME --- -->
+    <main id="page-home" class="page-section active">
+        <!-- Hero Section -->
+        <section class="relative h-screen flex items-center justify-center overflow-hidden">
+            <div class="absolute inset-0 z-0">
+                <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/947c9229b1a5643fedbd625d7c175fb981c1ddc7/huajiuan1.png" 
+                     class="w-full h-full object-cover opacity-40" alt="Hero">
+                <div class="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black"></div>
             </div>
-            {/* Wooden caps */}
-            <div className="absolute -top-1 left-0 right-0 h-3 bg-[#1a0a00] rounded-none shadow-lg" />
-            <div className="absolute -bottom-1 left-0 right-0 h-3 bg-[#1a0a00] rounded-none shadow-lg" />
-          </div>
-
-          <div className="absolute right-0 top-0 bottom-0 w-8 flex flex-col items-center justify-between py-2 z-20">
-            <div className="w-full h-full bg-gradient-to-l from-[#2a1a0d] via-[#56402d] to-[#2a1a0d] shadow-2xl rounded-none relative overflow-hidden border-l border-white/5">
-              <div className="absolute inset-y-0 left-0 w-2 bg-black/30 blur-[2px]" />
-            </div>
-            {/* Wooden caps */}
-            <div className="absolute -top-1 left-0 right-0 h-3 bg-[#1a0a00] rounded-none shadow-lg" />
-            <div className="absolute -bottom-1 left-0 right-0 h-3 bg-[#1a0a00] rounded-none shadow-lg" />
-          </div>
-
-          {/* Unrolling Glow Effect */}
-          <motion.div 
-            style={{ left: scrollUnroll }}
-            className="absolute top-0 bottom-0 w-32 bg-gradient-to-r from-transparent via-[#56402D]/10 to-transparent -translate-x-1/2 pointer-events-none blur-xl"
-          />
-        </motion.div>
-
-        {/* Horizontal Content Container */}
-        <motion.div 
-          style={{ x: xTranslate }}
-          className="absolute inset-0 flex items-center h-full w-[500vw] px-[10vw]"
-          onMouseMove={(e) => setMouse({ x: e.clientX, y: e.clientY })}
-        >
-          {/* 1. Title Section (Positioned Down and Left) */}
-          <motion.div 
-            style={{ opacity: titleOpacity, scale: titleScale }}
-            className="relative w-screen h-full flex flex-col items-start justify-end pb-[20vh] pl-[15vw] shrink-0 z-30"
-          >
-            <div className="flex flex-col items-start text-left max-w-[80vw]">
-              {/* Main Title - Reverted to Brown */}
-              <div className="relative mb-4">
-                <h1 className="text-7xl md:text-[8rem] font-serif tracking-[0.2em] text-tanmi-accent leading-none drop-shadow-[0_2px_10px_rgba(0,0,0,0.2)]" style={{ fontFamily: "'ZCOOL XiaoWei', serif" }}>
-                  {title1.map((char, i) => (
-                    <motion.span
-                      key={i}
-                      initial={{ y: 40, opacity: 0, filter: 'blur(10px)' }}
-                      animate={{ y: 0, opacity: 1, filter: 'blur(0px)' }}
-                      transition={{ delay: 0.4 + i * 0.1, duration: 1.8, ease: [0.16, 1, 0.3, 1] }}
-                      className="inline-block hover:text-tanmi-white transition-all duration-700 hover:scale-110"
-                    >
-                      {char}
-                    </motion.span>
-                  ))}
-                </h1>
-              </div>
-
-              {/* Scroll Line (卷轴细线) - Reverted to Brown */}
-              <div className="relative w-[50vw] h-[1px] my-8 flex items-center justify-start">
-                <motion.div 
-                  style={{ scaleX: scrollUnroll }}
-                  className="absolute inset-0 bg-gradient-to-r from-tanmi-accent via-tanmi-accent/40 to-transparent origin-left"
-                />
-                {/* Decorative dot */}
-                <motion.div 
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.2, duration: 1 }}
-                  className="w-2 h-2 rounded-full bg-tanmi-accent shadow-[0_0_10px_#56402D] z-10"
-                />
-              </div>
-
-              {/* Subtitle - Reverted to Brown */}
-              <div className="relative">
-                <h2 className="text-4xl md:text-5xl font-serif tracking-[0.4em] text-tanmi-accent/80 italic leading-none" style={{ fontFamily: "'ZCOOL XiaoWei', serif" }}>
-                  {title2.map((char, i) => (
-                    <motion.span
-                      key={i}
-                      initial={{ x: 30, opacity: 0, filter: 'blur(10px)' }}
-                      animate={{ x: 0, opacity: 1, filter: 'blur(0px)' }}
-                      transition={{ delay: 1 + i * 0.1, duration: 1.8, ease: [0.16, 1, 0.3, 1] }}
-                      className="inline-block hover:text-tanmi-white transition-all duration-700 hover:scale-105"
-                    >
-                      {char}
-                    </motion.span>
-                  ))}
-                </h2>
-              </div>
-              
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 0.6 }}
-                transition={{ delay: 2.5, duration: 1.5 }}
-                className="mt-20 flex flex-col items-start gap-6"
-              >
-                <div className="text-tanmi-gray text-[10px] tracking-[1em] uppercase font-light">
-                  Scroll to Unroll Civilization / 向下滚动 展开文明
+            
+            <div class="relative z-10 text-center max-w-4xl px-8 animate-fade-in">
+                <div class="flex items-center justify-center gap-4 mb-8">
+                    <div class="w-12 h-[1px] bg-tanmi-accent"></div>
+                    <span class="text-xs font-mono text-tanmi-accent tracking-[0.8em] uppercase">Civilization_Reconstructor</span>
+                    <div class="w-12 h-[1px] bg-tanmi-accent"></div>
                 </div>
-                <motion.div 
-                  animate={{ 
-                    y: [0, 15, 0],
-                    opacity: [0.4, 1, 0.4]
-                  }}
-                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                  className="w-[1px] h-16 bg-gradient-to-b from-tanmi-accent via-tanmi-accent/20 to-transparent ml-4"
-                />
-              </motion.div>
+                <h1 class="text-8xl font-serif mb-12 tracking-tighter leading-none">
+                    重构文明的<br><span class="italic text-tanmi-accent">数字星群</span>
+                </h1>
+                <p class="text-lg text-tanmi-gray font-serif leading-relaxed tracking-widest mb-16 max-w-2xl mx-auto italic">
+                    “ 散落的历史碎片，在数字宇宙中重新汇聚。我们不只是记录，我们是在创造永恒。 ”
+                </p>
+                <div class="flex items-center justify-center gap-12">
+                    <button class="group flex flex-col items-center gap-4" onclick="switchPage('constellations')">
+                        <div class="w-16 h-16 rounded-full border border-white/10 flex items-center justify-center group-hover:border-tanmi-accent transition-all duration-700">
+                            <i data-lucide="sparkles" class="text-white/40 group-hover:text-tanmi-accent"></i>
+                        </div>
+                        <span class="text-[10px] font-mono tracking-[0.4em] text-white/20 group-hover:text-white transition-colors uppercase">Explore_Galaxy</span>
+                    </button>
+                </div>
             </div>
-          </motion.div>
+        </section>
 
-          {/* 2. Planets Section (The linked constellation) */}
-          <div className="relative flex items-center gap-[30vw] h-full">
-            {PLANETS.map((node, i) => (
-              <PlanetNode 
-                key={node.id} 
-                node={node} 
-                index={i} 
-                smoothProgress={smoothProgress} 
-                onNodeClick={onNodeClick}
-                mouse={mouse}
-                isLast={i === PLANETS.length - 1}
-              />
-            ))}
-          </div>
-        </motion.div>
-
-        {/* Scroll Progress Indicator (Vertical Rail) */}
-        <div className="absolute left-10 top-1/2 -translate-y-1/2 h-64 w-[1px] bg-white/5 z-30">
-          <motion.div 
-            style={{ scaleY: smoothProgress }}
-            className="w-full h-full bg-tanmi-accent origin-top shadow-[0_0_10px_#56402D]"
-          />
-          <div className="absolute -top-8 left-1/2 -translate-x-1/2 text-[8px] font-mono text-tanmi-accent/40 rotate-90">START</div>
-          <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-[8px] font-mono text-tanmi-accent/40 rotate-90">END</div>
-        </div>
-
-        {/* Bottom Transition Gradient */}
-        <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-tanmi-bg to-transparent z-40 pointer-events-none" />
-
-        {/* Explore Button (Appears near the end or as a fixed skip) */}
-        <motion.div 
-          style={{ 
-            opacity: useTransform(smoothProgress, [0, 0.1, 0.8, 0.9], [0, 1, 1, 0]),
-            pointerEvents: useTransform(smoothProgress, [0, 0.1, 0.8, 0.9], ["none", "auto", "auto", "none"])
-          }}
-          className="absolute bottom-12 right-12 z-50"
-        >
-          <button 
-            onClick={onExploreClick}
-            className="group relative px-10 py-3 overflow-hidden transition-all duration-500 bg-tanmi-black/40 backdrop-blur-sm border border-tanmi-accent/30 hover:border-tanmi-accent"
-          >
-            <span className="relative z-10 text-[10px] tracking-[0.4em] text-tanmi-accent group-hover:text-tanmi-white transition-colors uppercase">
-              跳过序章 / Skip Intro
-            </span>
-            <motion.div 
-              className="absolute inset-0 bg-tanmi-accent translate-y-full group-hover:translate-y-0 transition-transform duration-500 ease-out"
-            />
-          </button>
-        </motion.div>
-      </div>
-    </div>
-  );
-};
-
-const PlanetNode: React.FC<{ 
-  node: StarNode; 
-  index: number; 
-  smoothProgress: any; 
-  onNodeClick: (node: StarNode) => void;
-  mouse: { x: number; y: number };
-  isLast: boolean;
-}> = ({ node, index, smoothProgress, onNodeClick, mouse, isLast }) => {
-  const [isHovered, setIsHovered] = useState(false);
-  
-  // Calculate when this planet should light up based on scroll
-  // Each planet takes a slice of the 0.2 to 0.9 range
-  const start = 0.2 + (index * 0.15);
-  const end = start + 0.1;
-  
-  const opacity = useTransform(smoothProgress, [start - 0.1, start, end, end + 0.1], [0, 1, 1, 0.3]);
-  const scale = useTransform(smoothProgress, [start - 0.1, start, end], [0.8, 1, 1]);
-  const glow = useTransform(smoothProgress, [start, start + 0.05], [0, 1]);
-
-  // Staggered vertical offset based on index
-  const yOffset = index % 2 === 0 ? -60 : 60;
-
-  return (
-    <motion.div 
-      style={{ 
-        opacity, 
-        scale,
-        y: yOffset 
-      }}
-      className="relative shrink-0 flex items-center"
-    >
-      {/* Connection Line to Next Planet (Curved SVG Path) */}
-      {!isLast && (
-        <div 
-          className="absolute left-full w-[30vw] h-[300px] pointer-events-none z-0"
-          style={{ 
-            top: '50%',
-            transform: `translateY(-50%)`,
-          }}
-        >
-          <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" className="overflow-visible">
-            <defs>
-              <linearGradient id={`grad-${index}`} x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#56402D" stopOpacity="0.4" />
-                <stop offset="50%" stopColor="#56402D" stopOpacity="0.8" />
-                <stop offset="100%" stopColor="#56402D" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            <motion.path
-              d={index % 2 === 0 
-                ? "M 0 50 C 40 50, 60 90, 100 90" 
-                : "M 0 50 C 40 50, 60 10, 100 10"
-              }
-              fill="none"
-              stroke={`url(#grad-${index})`}
-              strokeWidth="0.5"
-              style={{ pathLength: glow }}
-            />
-            {/* Animated pulse along the curve */}
-            <motion.path
-              d={index % 2 === 0 
-                ? "M 0 50 C 40 50, 60 90, 100 90" 
-                : "M 0 50 C 40 50, 60 10, 100 10"
-              }
-              fill="none"
-              stroke="#56402D"
-              strokeWidth="1"
-              strokeDasharray="10 100"
-              animate={{ strokeDashoffset: [-110, 0] }}
-              transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-            />
-          </svg>
-        </div>
-      )}
-
-      {/* Planet Body */}
-      <div 
-        className="relative cursor-pointer group"
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-        onClick={() => onNodeClick(node)}
-        style={{ width: node.size, height: node.size }}
-      >
-        <motion.div
-          animate={{
-            y: [0, node.floatRange || 10, 0],
-            rotate: [0, 2, 0, -2, 0]
-          }}
-          transition={{
-            duration: node.floatSpeed || 6,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-          className="w-full h-full relative"
-        >
-          {/* Enhanced Glow Aura (Multiple Layers) */}
-          <motion.div 
-            style={{ opacity: useTransform(glow, [0, 1], [0, 0.6]) }}
-            className="absolute inset-[-40px] rounded-full bg-tanmi-accent blur-[60px] -z-10 pointer-events-none"
-          />
-          <motion.div 
-            style={{ opacity: useTransform(glow, [0, 1], [0, 0.3]) }}
-            className="absolute inset-[-80px] rounded-full bg-tanmi-accent blur-[100px] -z-20 pointer-events-none"
-          />
-          <motion.div 
-            style={{ opacity: useTransform(glow, [0, 1], [0, 0.8]) }}
-            className="absolute inset-0 rounded-full bg-white/10 blur-xl -z-10 pointer-events-none"
-          />
-
-          {/* Planet Texture */}
-          <div className={`w-full h-full rounded-full planet-texture-${node.texture} relative overflow-hidden border border-white/10 shadow-[inset_0_0_50px_rgba(0,0,0,0.8)]`}>
-            {/* HUD Overlay */}
-            <div className="absolute inset-0 opacity-30">
-              <svg width="100%" height="100%" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r="48" fill="none" stroke="white" strokeWidth="0.1" strokeDasharray="2 4" />
-                <path d="M 20 50 L 80 50 M 50 20 L 50 80" stroke="white" strokeWidth="0.1" />
-              </svg>
+        <!-- Latest News (Narrative Flow) -->
+        <section class="py-40 px-16 bg-tanmi-black">
+            <div class="max-w-7xl mx-auto">
+                <div class="flex items-center gap-8 mb-24">
+                    <h2 class="text-4xl font-serif tracking-tighter">最新动态 / LATEST</h2>
+                    <div class="flex-1 h-[1px] bg-white/5"></div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-12">
+                    <!-- News Card 1 -->
+                    <div class="group cursor-pointer">
+                        <div class="aspect-[4/5] overflow-hidden mb-6 relative">
+                            <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/947c9229b1a5643fedbd625d7c175fb981c1ddc7/zuixindongtai1.png" 
+                                 class="w-full h-full object-cover grayscale-hover" alt="News 1">
+                            <div class="absolute top-6 left-6 text-[10px] font-mono text-tanmi-accent tracking-widest">01 / ARCHIVE</div>
+                        </div>
+                        <h3 class="text-xl font-serif mb-4 group-hover:text-tanmi-accent transition-colors">云冈石窟数字孪生项目正式上线</h3>
+                        <p class="text-xs text-tanmi-gray leading-relaxed opacity-60">通过高精度扫描技术，我们完整重构了昙曜五窟的宏伟气象...</p>
+                    </div>
+                    <!-- News Card 2 -->
+                    <div class="group cursor-pointer">
+                        <div class="aspect-[4/5] overflow-hidden mb-6 relative">
+                            <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/947c9229b1a5643fedbd625d7c175fb981c1ddc7/zuixindongtai2.png" 
+                                 class="w-full h-full object-cover grayscale-hover" alt="News 2">
+                            <div class="absolute top-6 left-6 text-[10px] font-mono text-tanmi-accent tracking-widest">02 / EVENT</div>
+                        </div>
+                        <h3 class="text-xl font-serif mb-4 group-hover:text-tanmi-accent transition-colors">“数字丝路”全球巡展首站在伦敦开启</h3>
+                        <p class="text-xs text-tanmi-gray leading-relaxed opacity-60">连接东西方文明的数字纽带，在泰晤士河畔绽放光芒...</p>
+                    </div>
+                    <!-- News Card 3 -->
+                    <div class="group cursor-pointer">
+                        <div class="aspect-[4/5] overflow-hidden mb-6 relative">
+                            <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/947c9229b1a5643fedbd625d7c175fb981c1ddc7/zuixindongtai3.png" 
+                                 class="w-full h-full object-cover grayscale-hover" alt="News 3">
+                            <div class="absolute top-6 left-6 text-[10px] font-mono text-tanmi-accent tracking-widest">03 / TECH</div>
+                        </div>
+                        <h3 class="text-xl font-serif mb-4 group-hover:text-tanmi-accent transition-colors">AI 文物修复助手 v2.0 版本发布</h3>
+                        <p class="text-xs text-tanmi-gray leading-relaxed opacity-60">引入深度学习算法，让残损的文明碎片在算法中重获新生...</p>
+                    </div>
+                </div>
             </div>
-            <div className="rim-light opacity-60" />
-            <div className="glass-refraction opacity-40" />
-          </div>
-        </motion.div>
+        </section>
 
-        {/* Labels */}
-        <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 text-center whitespace-nowrap pointer-events-none">
-          <AnimatePresence>
-            {isHovered && (
-              <motion.div 
-                initial={{ opacity: 0, y: 10, filter: 'blur(5px)' }}
-                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                exit={{ opacity: 0, y: 10, filter: 'blur(5px)' }}
-                className="flex flex-col items-center"
-              >
-                <span className="text-tanmi-gray text-[10px] tracking-[0.4em] uppercase mb-1">{node.year}</span>
-                <h3 className="text-tanmi-white font-serif text-2xl tracking-[0.2em] group-hover:text-tanmi-accent transition-colors">{node.label}</h3>
-                <span className="text-tanmi-accent/60 text-xs italic mt-1">{node.subtitle}</span>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* Technical Metadata (Floating) */}
-        <div className="absolute -top-12 -right-12 opacity-0 group-hover:opacity-40 transition-opacity duration-500 pointer-events-none">
-          <div className="text-[8px] font-mono text-tanmi-accent tracking-tighter">
-            NODE_SYNC_0{index + 1}<br />
-            STABILITY_98.4%<br />
-            TYPE_{node.texture.toUpperCase()}
-          </div>
-        </div>
-      </div>
-
-      {/* Description Tooltip on Hover */}
-      <AnimatePresence>
-        {isHovered && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: -20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: -20 }}
-            className="absolute top-full mt-24 left-1/2 -translate-x-1/2 w-64 p-6 bg-tanmi-black/80 backdrop-blur-md border border-tanmi-accent/20 rounded-none z-50 pointer-events-none"
-          >
-            <p className="text-tanmi-gray text-[11px] leading-relaxed tracking-wider text-center">
-              {node.description}
-            </p>
-            <div className="mt-4 flex justify-center">
-              <div className="px-3 py-1 border border-tanmi-accent/30 rounded-none text-[8px] text-tanmi-accent font-mono">
-                CLICK_TO_ENTER
-              </div>
+        <!-- Hot Stamps -->
+        <section class="py-40 px-16 bg-tanmi-bg">
+            <div class="max-w-7xl mx-auto">
+                <div class="flex items-center justify-between mb-24">
+                    <h2 class="text-4xl font-serif tracking-tighter">热门星印追踪 / HOT_STAMPS</h2>
+                    <button class="text-[10px] font-mono tracking-widest text-tanmi-accent uppercase border-b border-tanmi-accent/30 pb-1">View_All_Archive</button>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
+                    <div class="relative group aspect-[3/4] overflow-hidden border border-white/5">
+                        <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/947c9229b1a5643fedbd625d7c175fb981c1ddc7/xingyinzhuizong1.png" 
+                             class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-1000" alt="Stamp 1">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent p-8 flex flex-col justify-end">
+                            <span class="text-[8px] font-mono text-tanmi-accent mb-2 uppercase tracking-widest">SSR_ARCHIVE</span>
+                            <h4 class="text-xl font-serif">昙曜大佛</h4>
+                        </div>
+                    </div>
+                    <div class="relative group aspect-[3/4] overflow-hidden border border-white/5">
+                        <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/947c9229b1a5643fedbd625d7c175fb981c1ddc7/xingyinzhuizong2.png" 
+                             class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-1000" alt="Stamp 2">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent p-8 flex flex-col justify-end">
+                            <span class="text-[8px] font-mono text-tanmi-accent mb-2 uppercase tracking-widest">SR_ARCHIVE</span>
+                            <h4 class="text-xl font-serif">飞天乐伎</h4>
+                        </div>
+                    </div>
+                    <div class="relative group aspect-[3/4] overflow-hidden border border-white/5">
+                        <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/947c9229b1a5643fedbd625d7c175fb981c1ddc7/xingyinzhuizong3.png" 
+                             class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-1000" alt="Stamp 3">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent p-8 flex flex-col justify-end">
+                            <span class="text-[8px] font-mono text-tanmi-accent mb-2 uppercase tracking-widest">SSR_ARCHIVE</span>
+                            <h4 class="text-xl font-serif">九色鹿</h4>
+                        </div>
+                    </div>
+                    <div class="relative group aspect-[3/4] overflow-hidden border border-white/5">
+                        <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/947c9229b1a5643fedbd625d7c175fb981c1ddc7/xingyinzhuizong4.png" 
+                             class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-1000" alt="Stamp 4">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent p-8 flex flex-col justify-end">
+                            <span class="text-[8px] font-mono text-tanmi-accent mb-2 uppercase tracking-widest">UR_ARCHIVE</span>
+                            <h4 class="text-xl font-serif">青铜神树</h4>
+                        </div>
+                    </div>
+                </div>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
-  );
-};
+        </section>
+    </main>
+
+    <!-- --- PAGE: PHILOSOPHY --- -->
+    <main id="page-philosophy" class="page-section">
+        <section class="min-h-screen pt-40 px-16">
+            <div class="max-w-7xl mx-auto">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-24 items-center mb-40">
+                    <div>
+                        <div class="flex items-center gap-4 mb-8">
+                            <div class="w-12 h-[1px] bg-tanmi-accent"></div>
+                            <span class="text-xs font-mono text-tanmi-accent tracking-[0.5em] uppercase">Our_Philosophy</span>
+                        </div>
+                        <h2 class="text-7xl font-serif mb-12 tracking-tighter leading-none">理念 / VISION</h2>
+                        <p class="text-xl text-tanmi-gray font-serif leading-relaxed tracking-widest italic mb-12">
+                            “ 在数字的维度中，寻找文明的永恒。 ”
+                        </p>
+                        <p class="text-sm text-white/60 leading-relaxed tracking-widest max-w-lg">
+                            探弥宇宙致力于通过尖端数字孪生技术，重构人类文明的辉煌瞬间。我们相信，每一件文物、每一段历史，都应该在数字宇宙中拥有第二次生命。
+                        </p>
+                    </div>
+                    <div class="relative aspect-square overflow-hidden border border-white/10">
+                        <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/d86141d6d413588bae9b2b744c47ea4683e0a692/linianshouping1.png" 
+                             class="w-full h-full object-cover grayscale hover:grayscale-0 transition-all duration-1000" alt="Philosophy Hero">
+                    </div>
+                </div>
+
+                <!-- Curator Section -->
+                <div class="py-40 border-t border-white/5">
+                    <div class="flex items-center gap-8 mb-24">
+                        <h3 class="text-3xl font-serif tracking-tighter">策展人语 / CURATOR</h3>
+                        <div class="flex-1 h-[1px] bg-white/5"></div>
+                    </div>
+                    <div class="relative aspect-video overflow-hidden mb-12">
+                        <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/d86141d6d413588bae9b2b744c47ea4683e0a692/cezhanrenyu1.png" 
+                             class="w-full h-full object-cover" alt="Curator">
+                        <div class="absolute inset-0 bg-black/40 flex items-center justify-center">
+                            <div class="w-20 h-20 rounded-full border border-white/20 flex items-center justify-center hover:bg-tanmi-accent hover:border-tanmi-accent transition-all cursor-pointer">
+                                <i data-lucide="play" class="text-white ml-1"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- --- PAGE: CONSTELLATIONS --- -->
+    <main id="page-constellations" class="page-section">
+        <section class="min-h-screen pt-40 px-16">
+            <div class="max-w-7xl mx-auto">
+                <div class="flex items-center justify-between mb-24">
+                    <div>
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="w-12 h-[1px] bg-tanmi-accent"></div>
+                            <span class="text-xs font-mono text-tanmi-accent tracking-[0.5em] uppercase">Star_Clusters</span>
+                        </div>
+                        <h2 class="text-6xl font-serif tracking-tighter">星群 / CONSTELLATIONS</h2>
+                    </div>
+                </div>
+
+                <!-- Timeline Section -->
+                <div class="space-y-32 mb-40">
+                    <!-- Item 1 -->
+                    <div class="flex flex-col md:flex-row gap-16 items-stretch group">
+                        <div class="w-full md:w-1/3 aspect-[4/5] overflow-hidden bg-black">
+                            <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/2b76b5422f03033c07a43aa2eae0ccaa0d592cf9/xingqunshijianxian1.png" 
+                                 class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-1000 opacity-60 group-hover:opacity-100" alt="YG">
+                        </div>
+                        <div class="flex-1 flex flex-col justify-center">
+                            <div class="text-[10px] font-mono text-tanmi-accent tracking-[0.5em] uppercase mb-4">Node_YG_001</div>
+                            <h3 class="text-5xl font-serif mb-8 group-hover:text-tanmi-accent transition-colors">探弥·云冈</h3>
+                            <p class="text-tanmi-gray text-sm leading-relaxed tracking-widest max-w-xl mb-12">
+                                云冈石窟是中国规模最大的古代石窟群之一。通过数字孪生技术，我们重构了昙曜五窟的宏伟气象，让千年石刻在数字宇宙中焕发新生。
+                            </p>
+                            <div class="flex items-center gap-8">
+                                <div class="flex flex-col">
+                                    <span class="text-[8px] font-mono text-white/20 uppercase tracking-widest mb-1">Timeline</span>
+                                    <span class="text-xs font-mono text-tanmi-accent">2024 Q2</span>
+                                </div>
+                                <div class="flex flex-col">
+                                    <span class="text-[8px] font-mono text-white/20 uppercase tracking-widest mb-1">Status</span>
+                                    <span class="text-xs font-mono text-green-500/60">ACTIVE</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Item 2 -->
+                    <div class="flex flex-col md:flex-row gap-16 items-stretch group">
+                        <div class="w-full md:w-1/3 aspect-[4/5] overflow-hidden bg-black">
+                            <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/2b76b5422f03033c07a43aa2eae0ccaa0d592cf9/xingqunshijianxian2.png" 
+                                 class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-1000 opacity-60 group-hover:opacity-100" alt="DH">
+                        </div>
+                        <div class="flex-1 flex flex-col justify-center">
+                            <div class="text-[10px] font-mono text-tanmi-accent tracking-[0.5em] uppercase mb-4">Node_DH_002</div>
+                            <h3 class="text-5xl font-serif mb-8 group-hover:text-tanmi-accent transition-colors">探弥·敦煌</h3>
+                            <p class="text-tanmi-gray text-sm leading-relaxed tracking-widest max-w-xl mb-12">
+                                敦煌莫高窟是丝绸之路上最璀璨的明珠。我们利用高精度扫描与色彩还原技术，带您穿越大漠烟云，领略壁画中流转千年的东方色彩。
+                            </p>
+                            <div class="flex items-center gap-8">
+                                <div class="flex flex-col">
+                                    <span class="text-[8px] font-mono text-white/20 uppercase tracking-widest mb-1">Timeline</span>
+                                    <span class="text-xs font-mono text-tanmi-accent">2024 Q4</span>
+                                </div>
+                                <div class="flex flex-col">
+                                    <span class="text-[8px] font-mono text-white/20 uppercase tracking-widest mb-1">Status</span>
+                                    <span class="text-xs font-mono text-green-500/60">ACTIVE</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Yungang Detail Section -->
+                <div class="py-40 border-t border-white/5">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-24 items-center">
+                        <div>
+                            <h3 class="text-6xl font-serif mb-12 tracking-tighter">探弥云冈</h3>
+                            <p class="text-lg text-tanmi-gray font-serif leading-relaxed italic mb-12">
+                                “ 千年一窟，此刻探弥 ”
+                            </p>
+                            <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/2b76b5422f03033c07a43aa2eae0ccaa0d592cf9/yungangchangtu1.png" 
+                                 class="w-full h-auto border border-white/10" alt="Yungang Detail">
+                        </div>
+                        <div class="grid grid-cols-2 gap-8">
+                            <div class="aspect-square overflow-hidden group">
+                                <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/2b76b5422f03033c07a43aa2eae0ccaa0d592cf9/huodongxingxi1.png" class="w-full h-full object-cover grayscale-hover" alt="Act 1">
+                            </div>
+                            <div class="aspect-square overflow-hidden group">
+                                <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/2b76b5422f03033c07a43aa2eae0ccaa0d592cf9/huodongxingxi2.png" class="w-full h-full object-cover grayscale-hover" alt="Act 2">
+                            </div>
+                            <div class="aspect-square overflow-hidden group">
+                                <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/2b76b5422f03033c07a43aa2eae0ccaa0d592cf9/huodongxingxi3.png" class="w-full h-full object-cover grayscale-hover" alt="Act 3">
+                            </div>
+                            <div class="aspect-square overflow-hidden group">
+                                <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/2b76b5422f03033c07a43aa2eae0ccaa0d592cf9/huodongxingxi4.png" class="w-full h-full object-cover grayscale-hover" alt="Act 4">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recommendations -->
+                <div class="py-40 border-t border-white/5">
+                    <h3 class="text-2xl font-serif text-tanmi-gray tracking-widest mb-16">您已探索云冈，或许也会喜欢...</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                        <div class="group relative aspect-[16/7] overflow-hidden border border-white/5">
+                            <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/2b76b5422f03033c07a43aa2eae0ccaa0d592cf9/cainixihuan1.png" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700 opacity-40 group-hover:opacity-80" alt="Rec 1">
+                            <div class="absolute inset-0 p-8 flex flex-col justify-between">
+                                <span class="text-[8px] font-mono text-tanmi-accent tracking-widest uppercase">石窟</span>
+                                <h4 class="text-2xl font-serif">探弥·敦煌</h4>
+                            </div>
+                        </div>
+                        <div class="group relative aspect-[16/7] overflow-hidden border border-white/5">
+                            <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/2b76b5422f03033c07a43aa2eae0ccaa0d592cf9/cainixihuan2.png" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700 opacity-40 group-hover:opacity-80" alt="Rec 2">
+                            <div class="absolute inset-0 p-8 flex flex-col justify-between">
+                                <span class="text-[8px] font-mono text-tanmi-accent tracking-widest uppercase">文明</span>
+                                <h4 class="text-2xl font-serif">探弥·三星堆</h4>
+                            </div>
+                        </div>
+                        <div class="group relative aspect-[16/7] overflow-hidden border border-white/5">
+                            <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/2b76b5422f03033c07a43aa2eae0ccaa0d592cf9/cainixihuan3.png" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700 opacity-40 group-hover:opacity-80" alt="Rec 3">
+                            <div class="absolute inset-0 p-8 flex flex-col justify-between">
+                                <span class="text-[8px] font-mono text-tanmi-accent tracking-widest uppercase">丝路</span>
+                                <h4 class="text-2xl font-serif">探弥·丝路</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- --- PAGE: VAULT --- -->
+    <main id="page-vault" class="page-section">
+        <section class="min-h-screen pt-40 px-16">
+            <div class="max-w-7xl mx-auto">
+                <div class="flex items-center justify-between mb-16 border-b border-white/5 pb-8">
+                    <h1 class="text-4xl font-serif tracking-tighter">藏馆 <span class="text-sm text-white/20 ml-4 font-light italic">VAULT</span></h1>
+                </div>
+
+                <!-- User Info -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-16">
+                    <div class="lg:col-span-2 bg-white/[0.02] border border-white/5 p-10 flex items-center gap-10">
+                        <div class="w-32 h-32 border-2 border-tanmi-accent/30 p-1">
+                            <img src="https://picsum.photos/seed/user/200/200" class="w-full h-full object-cover" alt="Avatar">
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-4 mb-2">
+                                <h2 class="text-2xl font-serif">探险者_YG218</h2>
+                                <span class="px-3 py-1 bg-tanmi-accent text-white text-[10px] font-mono uppercase tracking-widest">LV.12</span>
+                            </div>
+                            <div class="flex items-center gap-8 text-white/40">
+                                <span class="text-xs font-mono tracking-widest">1250 探贝</span>
+                                <span class="text-xs font-mono tracking-widest">勋章: 08</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white/[0.02] border border-white/5 p-10 flex flex-col justify-between">
+                        <div class="text-[10px] font-mono text-white/20 uppercase tracking-[0.4em] mb-4">Collection_Overview</div>
+                        <div class="text-5xl font-serif">42 <span class="text-sm text-white/20 uppercase font-mono tracking-widest">Total_Seals</span></div>
+                    </div>
+                </div>
+
+                <!-- Grid -->
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-8">
+                    <!-- Seal 1 -->
+                    <div class="group cursor-pointer">
+                        <div class="aspect-[3/4] overflow-hidden mb-4 border border-white/5 group-hover:border-tanmi-accent/30 transition-all">
+                            <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/517c26d02e6cc9ed1b76489a29f4f2898f2774b9/cangguan1.png" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" alt="Seal 1">
+                        </div>
+                        <div class="text-center">
+                            <div class="text-[8px] font-mono text-white/20 uppercase tracking-[0.4em] mb-1">云冈石窟</div>
+                            <h3 class="text-lg font-serif tracking-widest group-hover:text-tanmi-accent transition-colors">昙曜大佛</h3>
+                        </div>
+                    </div>
+                    <!-- Seal 2 -->
+                    <div class="group cursor-pointer">
+                        <div class="aspect-[3/4] overflow-hidden mb-4 border border-white/5 group-hover:border-tanmi-accent/30 transition-all">
+                            <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/517c26d02e6cc9ed1b76489a29f4f2898f2774b9/cangguan2.png" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700" alt="Seal 2">
+                        </div>
+                        <div class="text-center">
+                            <div class="text-[8px] font-mono text-white/20 uppercase tracking-[0.4em] mb-1">云冈石窟</div>
+                            <h3 class="text-lg font-serif tracking-widest group-hover:text-tanmi-accent transition-colors">飞天乐伎</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- --- PAGE: INTERACTION --- -->
+    <main id="page-interaction" class="page-section">
+        <section class="min-h-screen pt-40 px-16">
+            <div class="max-w-7xl mx-auto">
+                <div class="flex flex-col md:flex-row md:items-end justify-between mb-20 gap-8">
+                    <div>
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="w-12 h-[1px] bg-tanmi-accent"></div>
+                            <span class="text-[10px] font-mono text-tanmi-accent tracking-[0.5em] uppercase">Interaction_Hub</span>
+                        </div>
+                        <h1 class="text-6xl font-serif text-tanmi-white tracking-widest">互动 / INTERACTION</h1>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-12 gap-12">
+                    <div class="col-span-12 lg:col-span-3">
+                        <div class="flex flex-wrap gap-3">
+                            <button class="px-4 py-2 bg-white/5 border border-white/5 rounded-full text-[11px] text-tanmi-gray hover:text-tanmi-accent transition-all">#数字考古</button>
+                            <button class="px-4 py-2 bg-white/5 border border-white/5 rounded-full text-[11px] text-tanmi-gray hover:text-tanmi-accent transition-all">#探弥宇宙</button>
+                            <button class="px-4 py-2 bg-white/5 border border-white/5 rounded-full text-[11px] text-tanmi-gray hover:text-tanmi-accent transition-all">#云端博物馆</button>
+                        </div>
+                    </div>
+                    <div class="col-span-12 lg:col-span-9 space-y-8">
+                        <div class="bg-white/[0.02] border border-white/5 p-10 hover:bg-white/[0.04] transition-all duration-700">
+                            <div class="flex items-start gap-8">
+                                <img src="https://picsum.photos/seed/user1/100/100" class="w-14 h-14 rounded-full border border-white/10" alt="User">
+                                <div class="flex-1">
+                                    <div class="flex items-center justify-between mb-4">
+                                        <span class="text-sm font-serif text-tanmi-white tracking-widest">星际旅人</span>
+                                        <span class="text-[10px] font-mono text-white/20 tracking-widest">2小时前</span>
+                                    </div>
+                                    <p class="text-sm text-tanmi-gray leading-relaxed tracking-widest mb-8">
+                                        今天在探弥宇宙里发现了一个隐藏的青铜神树数字副本，细节还原得太震撼了！感觉每一片叶子都在诉说着千年的故事。
+                                    </p>
+                                    <div class="mb-8 rounded-none overflow-hidden border border-white/5">
+                                        <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/fc4e567d0ed3fc9c330277dfad6ce40bcdac5eba/hudong1.png" 
+                                             class="w-full h-auto grayscale hover:grayscale-0 transition-all duration-1000" alt="Interaction Post">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- --- PAGE: NEWS --- -->
+    <main id="page-news" class="page-section">
+        <section class="min-h-screen pt-40 px-16">
+            <div class="max-w-7xl mx-auto">
+                <div class="mb-20">
+                    <div class="flex items-center gap-4 mb-6">
+                        <div class="w-12 h-[1px] bg-tanmi-accent"></div>
+                        <span class="text-xs font-mono text-tanmi-accent tracking-[0.5em] uppercase">Information_Matrix</span>
+                    </div>
+                    <h1 class="text-6xl font-serif tracking-widest text-tanmi-white">资讯 / NEWS</h1>
+                </div>
+
+                <!-- Brand Dynamics -->
+                <div class="space-y-12 mb-40">
+                    <div class="flex flex-col lg:flex-row bg-white/[0.02] border border-white/5 group overflow-hidden">
+                        <div class="lg:w-2/5 aspect-video lg:aspect-auto overflow-hidden">
+                            <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/1e2a1678f2f6e1cda165e6ac8d9dc69c6d91357a/pinpaidongtai1.png" 
+                                 class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-1000" alt="Brand 1">
+                        </div>
+                        <div class="lg:w-3/5 p-12">
+                            <span class="text-[10px] font-mono text-tanmi-accent tracking-widest uppercase mb-4 block">官方新闻</span>
+                            <h3 class="text-2xl font-serif mb-6 group-hover:text-tanmi-accent transition-colors">探弥宇宙与故宫博物院达成战略合作</h3>
+                            <p class="text-sm text-tanmi-gray leading-relaxed">双方将共同探索数字孪生技术在古建筑保护与文化传播中的深度应用...</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-col lg:flex-row bg-white/[0.02] border border-white/5 group overflow-hidden">
+                        <div class="lg:w-2/5 aspect-video lg:aspect-auto overflow-hidden">
+                            <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/1e2a1678f2f6e1cda165e6ac8d9dc69c6d91357a/pinpaidongtai2.png" 
+                                 class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-1000" alt="Brand 2">
+                        </div>
+                        <div class="lg:w-3/5 p-12">
+                            <span class="text-[10px] font-mono text-tanmi-accent tracking-widest uppercase mb-4 block">品牌动态</span>
+                            <h3 class="text-2xl font-serif mb-6 group-hover:text-tanmi-accent transition-colors">“数字丝绸之路”全球巡展首站在伦敦成功举办</h3>
+                            <p class="text-sm text-tanmi-gray leading-relaxed">本次展览通过VR与AR技术，让海外观众沉浸式体验敦煌莫高窟的艺术魅力...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Industry Vision -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div class="group cursor-pointer">
+                        <div class="aspect-[4/3] overflow-hidden mb-6 border border-white/5">
+                            <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/1e2a1678f2f6e1cda165e6ac8d9dc69c6d91357a/hangyeshiye1.png" class="w-full h-full object-cover grayscale-hover" alt="Vision 1">
+                        </div>
+                        <h3 class="text-sm font-serif text-tanmi-white leading-relaxed group-hover:text-tanmi-accent transition-colors">数字艺术的未来：从NFT到沉浸式文明体验</h3>
+                    </div>
+                    <div class="group cursor-pointer">
+                        <div class="aspect-[4/3] overflow-hidden mb-6 border border-white/5">
+                            <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/1e2a1678f2f6e1cda165e6ac8d9dc69c6d91357a/hangyeshiye2.png" class="w-full h-full object-cover grayscale-hover" alt="Vision 2">
+                        </div>
+                        <h3 class="text-sm font-serif text-tanmi-white leading-relaxed group-hover:text-tanmi-accent transition-colors">全球博物馆数字化转型趋势报告</h3>
+                    </div>
+                    <div class="group cursor-pointer">
+                        <div class="aspect-[4/3] overflow-hidden mb-6 border border-white/5">
+                            <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/1e2a1678f2f6e1cda165e6ac8d9dc69c6d91357a/hangyeshiye3.png" class="w-full h-full object-cover grayscale-hover" alt="Vision 3">
+                        </div>
+                        <h3 class="text-sm font-serif text-tanmi-white leading-relaxed group-hover:text-tanmi-accent transition-colors">文化遗产保护中的AI伦理</h3>
+                    </div>
+                    <div class="group cursor-pointer">
+                        <div class="aspect-[4/3] overflow-hidden mb-6 border border-white/5">
+                            <img src="https://raw.githubusercontent.com/13036017029/Tanmi-Universe/1e2a1678f2f6e1cda165e6ac8d9dc69c6d91357a/hangyeshiye4.png" class="w-full h-full object-cover grayscale-hover" alt="Vision 4">
+                        </div>
+                        <h3 class="text-sm font-serif text-tanmi-white leading-relaxed group-hover:text-tanmi-accent transition-colors">虚拟现实技术在考古现场的应用实践</h3>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="py-24 px-16 border-t border-white/5 bg-tanmi-black">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-12">
+            <div class="flex items-center gap-4">
+                <div class="w-8 h-8 border border-tanmi-accent flex items-center justify-center">
+                    <span class="text-tanmi-accent font-serif text-sm">TM</span>
+                </div>
+                <span class="text-xs font-mono tracking-[0.4em] uppercase opacity-40">Tanmi_Universe // 2026 Archive</span>
+            </div>
+            <div class="flex items-center gap-12 text-[10px] font-mono tracking-widest text-white/20 uppercase">
+                <a href="#" class="hover:text-tanmi-accent transition-colors">Terms_Of_Service</a>
+                <a href="#" class="hover:text-tanmi-accent transition-colors">Privacy_Protocol</a>
+                <a href="#" class="hover:text-tanmi-accent transition-colors">Contact_Node</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // Page Switching Logic
+        function switchPage(pageId) {
+            // Hide all sections
+            document.querySelectorAll('.page-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            // Show target section
+            document.getElementById('page-' + pageId).classList.add('active');
+
+            // Update Nav Links
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            document.getElementById('nav-' + pageId).classList.add('active');
+
+            // Scroll to top
+            window.scrollTo(0, 0);
+        }
+
+        // Simple Scroll Animation Trigger (Optional)
+        window.addEventListener('scroll', () => {
+            const nav = document.querySelector('nav');
+            if (window.scrollY > 50) {
+                nav.classList.add('bg-black/95');
+            } else {
+                nav.classList.remove('bg-black/95');
+            }
+        });
+    </script>
+</body>
+</html>
